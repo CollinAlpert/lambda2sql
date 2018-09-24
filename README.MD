@@ -1,7 +1,7 @@
 Lambda2sql (lambda) -> "sql"
 ==========
 
-[![](https://jitpack.io/v/ajermakovics/lambda2sql.svg)](https://jitpack.io/#ajermakovics/lambda2sql)
+**Please note:** This is a Java 10 library so make sure you have at least Java 10 installed when using it.
 
 Convert Java 8 lambdas to SQL statements.
 
@@ -16,8 +16,6 @@ is converted to a string:
   age < 100 AND height > 200
 ```
 allowing you to write readable queries in a type safe way.
-
-See [Lambda2SqlTest](https://github.com/ajermakovics/lambda2sql/blob/master/src/test/java/lambda2sql/Lambda2SqlTest.java) for more examples or the [Wiki](https://github.com/ajermakovics/lambda2sql/wiki).
 	
 Usage
 ---------
@@ -41,28 +39,26 @@ See [https://bugs.openjdk.java.net/browse/JDK-8023524](https://bugs.openjdk.java
 
 When the property is enabled, JVM generated classes for lambdas are saved to disk. JaQue then uses [ASM](http://asm.ow2.org/) to read the .class files and creates expression trees.
 
-Since the interface [`SqlPredicate<T>`](https://github.com/ajermakovics/lambda2sql/blob/master/src/main/java/lambda2sql/SqlPredicate.java) is automatically serialized, there is no need to set this property.
+Since the functional interfaces included in this project are automatically serialized, there is no need to set this property.
+The interfaces ``SqlPredicate<T>`` and ``SqlFunction<T>`` can be used exactly like the original functional interfaces.
 
-Limitations
+Features
 ---------
 
-Current version only works with predicates and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !
+Current version works with predicates, functions and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !
+
+Feel free to open an issue with any requests you might have.`
 
 Install
 -------
 
-You can get the library using JitPack https://jitpack.io/#ajermakovics/lambda2sql/0.3
-
-```gradle
-repositories {
-    maven { url "https://jitpack.io" }
-}
-dependencies {
-    compile 'com.github.ajermakovics:lambda2sql:0.3'
-}	
+You can include the Maven dependency:
+```xml
+<dependency>
+    <groupId>com.github.collinalpert</groupId>
+    <artifactId>lambda2sql</artifactId>
+    <version>1.0</version>
+</dependency>
 ```
 
-Build
----------
-
-`gradle jar` or `gradle fatjar` to include dependencies.
+Or add the [JAR](https://github.com/CollinAlpert/lambda2sql/releases/latest) to your project.

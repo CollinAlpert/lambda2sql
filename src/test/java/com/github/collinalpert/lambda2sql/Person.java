@@ -1,4 +1,4 @@
-package lambda2sql;
+package com.github.collinalpert.lambda2sql;
 
 public interface Person {
 	String getName();
