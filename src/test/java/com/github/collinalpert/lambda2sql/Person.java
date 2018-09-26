@@ -1,5 +1,6 @@
 package com.github.collinalpert.lambda2sql;
 
+@TableName("person")
 public interface Person {
 	String getName();
 

@@ -1,11 +1,11 @@
 Lambda2sql (lambda) -> "sql"
 ==========
 
-**Please note:** This is a Java 10 library so make sure you have at least Java 10 installed when using it.
+**Please note:** This is a Java 11 library so make sure you have at least Java 11 installed when using it.
 
 Convert Java 8 lambdas to SQL statements.
 
-For example, the following Predicate<Person>:
+For example, the following ``SqlPredicate<Person>``:
 ```jshelllanguage
  person -> person.getAge() < 100 && person.getHeight() > 200
 ```
@@ -13,9 +13,12 @@ For example, the following Predicate<Person>:
 is converted to a string:
  
 ```
-  age < 100 AND height > 200
+  person.age < 100 AND person.height > 200
 ```
 allowing you to write readable queries in a type safe way.
+
+**Note:** Remember to annotate the class used in the ``Predicate<T>`` with the ``TableName`` attribute.
+If the attribute is not supplied, the class in lower case characters will be used. 
 	
 Usage
 ---------
@@ -25,9 +28,8 @@ int age = 100;
 int height = 200;
 SqlPredicate<Person> predicate = person -> person.getAge() < age && person.getHeight() > height;
 
-String sql = Lambda2Sql.toSql(predicate); // age < 100 AND height > 200
+String sql = Lambda2Sql.toSql(predicate); // person.age < 100 AND person.height > 200
 ```
-
 
 How it works
 ---------
@@ -57,7 +59,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>1.0</version>
+    <version>1.6</version>
 </dependency>
 ```
 

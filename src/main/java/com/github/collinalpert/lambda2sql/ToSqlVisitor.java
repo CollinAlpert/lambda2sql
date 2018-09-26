@@ -133,7 +133,14 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		String name = e.getMember().getName();
 		name = name.replaceAll("^(get)", "");
 		name = name.substring(0, 1).toLowerCase() + name.substring(1);
-		return sb.append(name);
+		var annotation = e.getMember().getDeclaringClass().getAnnotation(TableName.class);
+		String tableName;
+		if (annotation != null) {
+			tableName = annotation.value();
+		} else {
+			tableName = e.getMember().getDeclaringClass().getSimpleName().toLowerCase();
+		}
+		return sb.append(tableName).append(".").append(name);
 	}
 
 	/**
