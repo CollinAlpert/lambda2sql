@@ -17,9 +17,6 @@ is converted to a string:
 ```
 allowing you to write readable queries in a type safe way.
 
-**Note:** Remember to annotate the class used in the ``Predicate<T>`` with the ``TableName`` attribute.
-If the attribute is not supplied, the class in lower case characters will be used. 
-	
 Usage
 ---------
 
@@ -59,7 +56,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>1.6</version>
+    <version>1.6.1</version>
 </dependency>
 ```
 

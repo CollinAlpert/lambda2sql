@@ -11,23 +11,24 @@ import com.trigersoft.jaque.expression.MemberExpression;
 import com.trigersoft.jaque.expression.ParameterExpression;
 import com.trigersoft.jaque.expression.UnaryExpression;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-
 
 /**
  * Converts a lambda expression to an SQL where condition.
  */
 public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 
+	private final String prefix;
 	private StringBuilder sb;
 
 	private Expression body;
 	private List<ConstantExpression> parameters;
 
-	public ToSqlVisitor() {
+	public ToSqlVisitor(String prefix) {
+		this.prefix = prefix;
 		this.sb = new StringBuilder();
-		this.parameters = new ArrayList<>();
+		this.parameters = new LinkedList<>();
 	}
 
 	/**
@@ -133,14 +134,10 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		String name = e.getMember().getName();
 		name = name.replaceAll("^(get)", "");
 		name = name.substring(0, 1).toLowerCase() + name.substring(1);
-		var annotation = e.getMember().getDeclaringClass().getAnnotation(TableName.class);
-		String tableName;
-		if (annotation != null) {
-			tableName = annotation.value();
-		} else {
-			tableName = e.getMember().getDeclaringClass().getSimpleName().toLowerCase();
+		if (prefix == null) {
+			return sb.append(name);
 		}
-		return sb.append(tableName).append(".").append(name);
+		return sb.append(prefix).append(".").append(name);
 	}
 
 	/**

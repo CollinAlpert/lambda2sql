@@ -15,11 +15,17 @@ public class Lambda2Sql {
 	 * <pre>{@code "age > 50 AND active" }</pre>
 	 * Supported operators: {@code >,>=,<,<=,=,!=,&&,||,!}
 	 *
-	 * @param functionalInterface The lambda to convert.
+	 * @param functionalInterface A {@link FunctionalInterface} lambda to convert.
+	 * @param prefix              An optional prefix to proceed the column name.
+	 *                            Usually it is supposed to be used to reference the column name including the table name.
 	 * @return A {@link String} describing the SQL where condition.
 	 */
-	public static String toSql(SerializedFunctionalInterface functionalInterface) {
+	public static String toSql(SerializedFunctionalInterface functionalInterface, String prefix) {
 		var lambdaExpression = LambdaExpression.parse(functionalInterface);
-		return lambdaExpression.accept(new ToSqlVisitor()).toString();
+		return lambdaExpression.accept(new ToSqlVisitor(prefix)).toString();
+	}
+
+	public static String toSql(SerializedFunctionalInterface functionalInterface) {
+		return toSql(functionalInterface, null);
 	}
 }

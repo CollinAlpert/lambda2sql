@@ -39,12 +39,12 @@ class Lambda2SqlTest {
 
 	@Test
 	void testFunction() {
-		assertFunctionEqual("person.name", Person::getName);
-		assertFunctionEqual("person.age", person -> person.getAge());
+		assertFunctionEqual("name", Person::getName);
+		assertFunctionEqual("age", person -> person.getAge());
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<Person> p) {
-		var sql = Lambda2Sql.toSql(p);
+		var sql = Lambda2Sql.toSql(p, "person");
 		Assertions.assertEquals(expectedSql, sql);
 	}
 
