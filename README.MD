@@ -46,7 +46,7 @@ Features
 
 Current version works with predicates, functions and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !
 
-Feel free to open an issue with any requests you might have.`
+Feel free to open an issue with any requests you might have.
 
 Install
 -------
@@ -56,7 +56,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>1.6.3</version>
+    <version>1.6.4</version>
 </dependency>
 ```
 

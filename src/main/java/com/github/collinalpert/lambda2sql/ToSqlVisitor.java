@@ -25,7 +25,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	private Expression body;
 	private List<ConstantExpression> parameters;
 
-	public ToSqlVisitor(String prefix) {
+	ToSqlVisitor(String prefix) {
 		this.prefix = prefix;
 		this.sb = new StringBuilder();
 		this.parameters = new LinkedList<>();
@@ -102,7 +102,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	public StringBuilder visit(InvocationExpression e) {
 		e.getArguments()
 				.stream()
-				.filter(x -> x instanceof ConstantExpression)
+				.filter(x -> x instanceof ConstantExpression && x.getResultType() != LambdaExpression.class)
 				.map(ConstantExpression.class::cast)
 				.forEach(parameters::add);
 		return e.getTarget().accept(this);

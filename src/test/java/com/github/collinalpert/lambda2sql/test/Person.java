@@ -1,4 +1,4 @@
-package com.github.collinalpert.lambda2sql;
+package com.github.collinalpert.lambda2sql.test;
 
 public interface Person {
 	long getId();

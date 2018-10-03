@@ -1,8 +1,8 @@
-package com.github.collinalpert.lambda2sql;
+package com.github.collinalpert.lambda2sql.test;
 
+import com.github.collinalpert.lambda2sql.Lambda2Sql;
 import com.github.collinalpert.lambda2sql.functions.SqlFunction;
 import com.github.collinalpert.lambda2sql.functions.SqlPredicate;
-import com.trigersoft.jaque.expression.LambdaExpression;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +48,7 @@ class Lambda2SqlTest {
 	void testMethodReferences() {
 		SqlPredicate<Person> person = Person::isAdult;
 		SqlPredicate<Person> personAnd = person.and(x -> true);
-		LambdaExpression<SqlPredicate<Person>> lambda = LambdaExpression.parse(personAnd);
+		assertPredicateEqual("person.isAdult AND true", personAnd);
 	}
 
 	@Test
@@ -56,7 +56,7 @@ class Lambda2SqlTest {
 		int id = 1;
 		SqlPredicate<Person> personPredicate = person -> person.getId() == id;
 		SqlPredicate<Person> personSqlPredicateAnd = personPredicate.and(x -> true);
-		LambdaExpression<SqlPredicate<Person>> pred = LambdaExpression.parse(personSqlPredicateAnd);
+		assertPredicateEqual("person.id = 1 AND true", personSqlPredicateAnd);
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<Person> p) {

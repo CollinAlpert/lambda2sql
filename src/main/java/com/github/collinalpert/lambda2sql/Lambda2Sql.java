@@ -16,8 +16,7 @@ public class Lambda2Sql {
 	 * Supported operators: {@code >,>=,<,<=,=,!=,&&,||,!}
 	 *
 	 * @param functionalInterface A {@link FunctionalInterface} lambda to convert.
-	 * @param prefix              An optional prefix to proceed the column name.
-	 *                            Usually it is supposed to be used to reference the column name including the table name.
+	 * @param prefix              An optional prefix to proceed the column name. Usually it is the table name.
 	 * @return A {@link String} describing the SQL where condition.
 	 */
 	public static String toSql(SerializedFunctionalInterface functionalInterface, String prefix) {
