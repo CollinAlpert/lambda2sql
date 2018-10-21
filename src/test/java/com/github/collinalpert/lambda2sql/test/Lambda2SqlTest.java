@@ -40,31 +40,46 @@ class Lambda2SqlTest {
 
 	@Test
 	void testFunction() {
-		assertFunctionEqual("name", Person::getName);
+		assertFunctionEqual("name", IPerson::getName);
 		assertFunctionEqual("age", person -> person.getAge());
 	}
 
 	@Test
 	void testMethodReferences() {
-		SqlPredicate<Person> person = Person::isAdult;
-		SqlPredicate<Person> personAnd = person.and(x -> true);
+		SqlPredicate<IPerson> person = IPerson::isAdult;
+		SqlPredicate<IPerson> personAnd = person.and(x -> true);
 		assertPredicateEqual("person.isAdult AND true", personAnd);
 	}
 
 	@Test
-	void testGetById() {
-		int id = 1;
-		SqlPredicate<Person> personPredicate = person -> person.getId() == id;
-		SqlPredicate<Person> personSqlPredicateAnd = personPredicate.and(x -> true);
+	void testAndFunction() {
+		var id = 1;
+		SqlPredicate<IPerson> personPredicate = person -> person.getId() == id;
+		SqlPredicate<IPerson> personSqlPredicateAnd = personPredicate.and(x -> true);
 		assertPredicateEqual("person.id = 1 AND true", personSqlPredicateAnd);
 	}
 
-	private void assertPredicateEqual(String expectedSql, SqlPredicate<Person> p) {
+	@Test
+	void testOrFunction() {
+		var id = 1;
+		SqlPredicate<IPerson> personPredicate = person -> person.getId() == id;
+		SqlPredicate<IPerson> personSqlPredicateAnd = personPredicate.or(x -> true);
+		assertPredicateEqual("person.id = 1 OR true", personSqlPredicateAnd);
+	}
+
+	@Test
+	void testNestedProperties() {
+		SqlPredicate<IPerson> p = person -> person.getCar().getModel() == "Mercedes";
+		var sql = Lambda2Sql.toSql(p, "car");
+		Assertions.assertEquals("car.model = 'Mercedes'", sql);
+	}
+
+	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {
 		var sql = Lambda2Sql.toSql(p, "person");
 		Assertions.assertEquals(expectedSql, sql);
 	}
 
-	private void assertFunctionEqual(String expectedSql, SqlFunction<Person, ?> function) {
+	private void assertFunctionEqual(String expectedSql, SqlFunction<IPerson, ?> function) {
 		var sql = Lambda2Sql.toSql(function);
 		Assertions.assertEquals(expectedSql, sql);
 	}

@@ -17,4 +17,9 @@ public interface SqlPredicate<T> extends Predicate<T>, SerializedFunctionalInter
 		Objects.requireNonNull(other);
 		return t -> test(t) && other.test(t);
 	}
+
+	default SqlPredicate<T> or(SqlPredicate<? super T> other) {
+		Objects.requireNonNull(other);
+		return t -> test(t) || other.test(t);
+	}
 }

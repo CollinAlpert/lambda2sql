@@ -1,6 +1,6 @@
 package com.github.collinalpert.lambda2sql.test;
 
-public interface Person {
+public interface IPerson {
 	long getId();
 
 	String getName();
@@ -10,6 +10,8 @@ public interface Person {
 	int getHeight();
 
 	boolean isActive();
+
+	ICar getCar();
 
 	default boolean isAdult() {
 		return getAge() >= 18;

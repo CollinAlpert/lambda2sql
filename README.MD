@@ -56,7 +56,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>1.7</version>
+    <version>1.8</version>
 </dependency>
 ```
 
