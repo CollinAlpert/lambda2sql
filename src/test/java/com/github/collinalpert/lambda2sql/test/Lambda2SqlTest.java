@@ -35,7 +35,7 @@ class Lambda2SqlTest {
 	void testWithVariables() {
 		var name = "Donald";
 		var age = 80;
-		assertPredicateEqual("person.name = 'Donald' AND person.age > 80", person -> person.getName() == name && person.getAge() > age);
+		assertPredicateEqual("person.name = 'Donald' OR person.age > 80", person -> person.getName() == name || person.getAge() > age);
 	}
 
 	@Test
@@ -63,8 +63,18 @@ class Lambda2SqlTest {
 	void testOrFunction() {
 		var id = 1;
 		SqlPredicate<IPerson> personPredicate = person -> person.getId() == id;
-		SqlPredicate<IPerson> personSqlPredicateAnd = personPredicate.or(x -> true);
-		assertPredicateEqual("person.id = 1 OR true", personSqlPredicateAnd);
+		SqlPredicate<IPerson> personSqlPredicateOr = personPredicate.or(x -> true);
+		assertPredicateEqual("person.id = 1 OR true", personSqlPredicateOr);
+	}
+
+	@Test
+	void testHigherLevelWithParameters() {
+		var name1 = "Donald";
+		var age1 = 80;
+		var name2 = "Steve";
+		SqlPredicate<IPerson> personPredicate = p -> (p.getName() == name1 || p.getAge() == age1);
+		personPredicate = personPredicate.and(p -> p.getName() == name2);
+		assertPredicateEqual("(person.name = 'Donald' OR person.age = 80) AND person.name = 'Steve'", personPredicate);
 	}
 
 	@Test

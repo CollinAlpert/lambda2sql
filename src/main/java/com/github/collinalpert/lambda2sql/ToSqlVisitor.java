@@ -11,8 +11,8 @@ import com.trigersoft.jaque.expression.MemberExpression;
 import com.trigersoft.jaque.expression.ParameterExpression;
 import com.trigersoft.jaque.expression.UnaryExpression;
 
-import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Converts a lambda expression to an SQL where condition.
@@ -20,15 +20,14 @@ import java.util.List;
 public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 
 	private final String prefix;
+	private LinkedListStack<List<ConstantExpression>> arguments;
 	private StringBuilder sb;
-
 	private Expression body;
-	private List<ConstantExpression> parameters;
 
 	ToSqlVisitor(String prefix) {
 		this.prefix = prefix;
 		this.sb = new StringBuilder();
-		this.parameters = new LinkedList<>();
+		arguments = new LinkedListStack<>();
 	}
 
 	/**
@@ -62,7 +61,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(BinaryExpression e) {
-		boolean quote = e != body && e.getExpressionType() == ExpressionType.LogicalOr;
+		boolean quote = e != this.body && e.getExpressionType() == ExpressionType.LogicalOr;
 
 		if (quote) sb.append('(');
 
@@ -92,7 +91,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 
 	/**
 	 * An expression which represents an invocation of a lambda expression.
-	 * It is the last {@link #visit} where the parameters of {@link ParameterExpression}s are available which is why
+	 * It is the last {@link #visit} where the arguments of {@link ParameterExpression}s are available which is why
 	 * they are temporarily saved in a list to be inserted into the SQL where condition later.
 	 *
 	 * @param e The {@link InvocationExpression} to convert.
@@ -100,11 +99,13 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(InvocationExpression e) {
-		e.getArguments()
+		var list = e.getArguments()
 				.stream()
-				.filter(x -> x instanceof ConstantExpression && x.getResultType() != LambdaExpression.class)
-				.map(ConstantExpression.class::cast)
-				.forEach(parameters::add);
+				.filter(x -> x instanceof ConstantExpression)
+				.map(ConstantExpression.class::cast).collect(Collectors.toList());
+		if (!list.isEmpty()) {
+			arguments.push(list);
+		}
 		return e.getTarget().accept(this);
 	}
 
@@ -116,8 +117,10 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(LambdaExpression<?> e) {
-		this.body = e.getBody();
-		return body.accept(this);
+		if (this.body == null && e.getBody() instanceof BinaryExpression) {
+			this.body = e.getBody();
+		}
+		return e.getBody().accept(this);
 	}
 
 	/**
@@ -148,7 +151,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(ParameterExpression e) {
-		parameters.get(e.getIndex()).accept(this);
+		arguments.top().get(e.getIndex()).accept(this);
 		return sb;
 	}
 
