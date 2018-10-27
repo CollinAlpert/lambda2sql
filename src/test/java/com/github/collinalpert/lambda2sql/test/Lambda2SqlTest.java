@@ -87,10 +87,13 @@ class Lambda2SqlTest {
 	@Test
 	void testNull() {
 		String isNull = null;
+		Integer i = null;
 		SqlPredicate<IPerson> p = person -> person.getName() == isNull;
 		SqlPredicate<IPerson> p2 = person -> person.getName() == null;
+		SqlPredicate<IPerson> p3 = person -> person.getAge() >= i;
 		assertPredicateEqual("person.name IS NULL", p);
 		assertPredicateEqual("person.name IS NULL", p2);
+		assertPredicateEqual("person.age IS NULL", p3);
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {

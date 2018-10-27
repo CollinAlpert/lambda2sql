@@ -66,13 +66,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		if (quote) sb.append('(');
 
 		e.getFirst().accept(this);
-		sb.append(' ');
-		if (!arguments.isEmpty() && arguments.top().get(0).getValue() == null) {
-			sb.append("IS");
-		} else {
-			sb.append(toSqlOp(e.getExpressionType()));
-		}
-		sb.append(' ');
+		sb.append(' ').append(toSqlOp(e.getExpressionType())).append(' ');
 		e.getSecond().accept(this);
 
 		if (quote) sb.append(')');
@@ -90,7 +84,9 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	@Override
 	public StringBuilder visit(ConstantExpression e) {
 		if (e.getValue() == null) {
-			return sb.append("NULL");
+			sb.deleteCharAt(sb.length() - 1);
+			sb.delete(sb.lastIndexOf(" "), sb.length());
+			return sb.append(" IS NULL");
 		}
 		if (e.getValue() instanceof String) {
 			return sb.append("'").append(e.getValue().toString()).append("'");
