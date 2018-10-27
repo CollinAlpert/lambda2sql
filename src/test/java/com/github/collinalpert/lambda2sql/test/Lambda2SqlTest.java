@@ -84,6 +84,15 @@ class Lambda2SqlTest {
 		Assertions.assertEquals("car.model = 'Mercedes'", sql);
 	}
 
+	@Test
+	void testNull() {
+		String isNull = null;
+		SqlPredicate<IPerson> p = person -> person.getName() == isNull;
+		SqlPredicate<IPerson> p2 = person -> person.getName() == null;
+		assertPredicateEqual("person.name IS NULL", p);
+		assertPredicateEqual("person.name IS NULL", p2);
+	}
+
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {
 		var sql = Lambda2Sql.toSql(p, "person");
 		Assertions.assertEquals(expectedSql, sql);

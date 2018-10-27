@@ -66,7 +66,13 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		if (quote) sb.append('(');
 
 		e.getFirst().accept(this);
-		sb.append(' ').append(toSqlOp(e.getExpressionType())).append(' ');
+		sb.append(' ');
+		if (!arguments.isEmpty() && arguments.top().get(0).getValue() == null) {
+			sb.append("IS");
+		} else {
+			sb.append(toSqlOp(e.getExpressionType()));
+		}
+		sb.append(' ');
 		e.getSecond().accept(this);
 
 		if (quote) sb.append(')');
@@ -83,6 +89,9 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(ConstantExpression e) {
+		if (e.getValue() == null) {
+			return sb.append("NULL");
+		}
 		if (e.getValue() instanceof String) {
 			return sb.append("'").append(e.getValue().toString()).append("'");
 		}
@@ -102,7 +111,8 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		var list = e.getArguments()
 				.stream()
 				.filter(x -> x instanceof ConstantExpression)
-				.map(ConstantExpression.class::cast).collect(Collectors.toList());
+				.map(ConstantExpression.class::cast)
+				.collect(Collectors.toList());
 		if (!list.isEmpty()) {
 			arguments.push(list);
 		}
@@ -166,6 +176,9 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(UnaryExpression e) {
+		if (e.getExpressionType() == ExpressionType.IsNull) {
+			return e.getFirst().accept(this).append(" IS NULL");
+		}
 		sb.append(toSqlOp(e.getExpressionType()));
 		return e.getFirst().accept(this);
 	}
