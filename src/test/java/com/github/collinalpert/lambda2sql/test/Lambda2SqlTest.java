@@ -53,18 +53,18 @@ class Lambda2SqlTest {
 
 	@Test
 	void testAndFunction() {
-		var id = 1;
+		var id = 2;
 		SqlPredicate<IPerson> personPredicate = person -> person.getId() == id;
 		SqlPredicate<IPerson> personSqlPredicateAnd = personPredicate.and(x -> true);
-		assertPredicateEqual("person.id = 1 AND true", personSqlPredicateAnd);
+		assertPredicateEqual("person.id = 2 AND true", personSqlPredicateAnd);
 	}
 
 	@Test
 	void testOrFunction() {
-		var id = 1;
+		var id = 2;
 		SqlPredicate<IPerson> personPredicate = person -> person.getId() == id;
 		SqlPredicate<IPerson> personSqlPredicateOr = personPredicate.or(x -> true);
-		assertPredicateEqual("person.id = 1 OR true", personSqlPredicateOr);
+		assertPredicateEqual("person.id = 2 OR true", personSqlPredicateOr);
 	}
 
 	@Test
@@ -88,12 +88,32 @@ class Lambda2SqlTest {
 	void testNull() {
 		String isNull = null;
 		Integer i = null;
-		SqlPredicate<IPerson> p = person -> person.getName() == isNull;
+		var age = 17;
+		SqlPredicate<IPerson> p = person -> person.getAge() == age || person.getName() == isNull;
 		SqlPredicate<IPerson> p2 = person -> person.getName() == null;
-		SqlPredicate<IPerson> p3 = person -> person.getAge() >= i;
-		assertPredicateEqual("person.name IS NULL", p);
+		SqlPredicate<IPerson> p3 = person -> person.getAge() >= i && person.getAge() <= age;
+		assertPredicateEqual("person.age = 17 OR person.name IS NULL", p);
 		assertPredicateEqual("person.name IS NULL", p2);
-		assertPredicateEqual("person.age IS NULL", p3);
+		assertPredicateEqual("person.age >= NULL AND person.age <= 17", p3);
+	}
+
+	@Test
+	void testNotNull() {
+		String isNull = null;
+		var age = 17;
+		SqlPredicate<IPerson> p = person -> person.getAge() == age || person.getName() != isNull;
+		SqlPredicate<IPerson> p2 = person -> person.getName() != null;
+		assertPredicateEqual("person.age = 17 OR person.name IS NOT NULL", p);
+		assertPredicateEqual("person.name IS NOT NULL", p2);
+	}
+
+	@Test
+	void testParentheses() {
+		var age = 18;
+		SqlPredicate<IPerson> p = person -> person.getAge() == age && person.isAdult() || person.getName() == "Steve";
+		SqlPredicate<IPerson> p2 = person -> person.getAge() == age && (person.isAdult() || person.getName() == "Steve");
+		assertPredicateEqual("person.age = 18 AND person.isAdult OR person.name = 'Steve'", p);
+		assertPredicateEqual("person.age = 18 AND (person.isAdult OR person.name = 'Steve')", p2);
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {

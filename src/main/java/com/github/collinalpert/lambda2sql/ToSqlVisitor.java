@@ -2,6 +2,7 @@ package com.github.collinalpert.lambda2sql;
 
 import com.trigersoft.jaque.expression.BinaryExpression;
 import com.trigersoft.jaque.expression.ConstantExpression;
+import com.trigersoft.jaque.expression.DelegateExpression;
 import com.trigersoft.jaque.expression.Expression;
 import com.trigersoft.jaque.expression.ExpressionType;
 import com.trigersoft.jaque.expression.ExpressionVisitor;
@@ -61,6 +62,16 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(BinaryExpression e) {
+		//Handling for null parameters
+		if (e.getSecond() instanceof ParameterExpression && arguments.top().get(((ParameterExpression) e.getSecond()).getIndex()).getValue() == null) {
+			if (e.getExpressionType() == ExpressionType.Equal) {
+				return Expression.isNull(e.getFirst()).accept(this);
+			}
+			if (e.getExpressionType() == ExpressionType.NotEqual) {
+				return Expression.unary(ExpressionType.LogicalNot, boolean.class, Expression.unary(ExpressionType.IsNull, boolean.class, e.getFirst())).accept(this);
+			}
+		}
+
 		boolean quote = e != this.body && e.getExpressionType() == ExpressionType.LogicalOr;
 
 		if (quote) sb.append('(');
@@ -83,10 +94,12 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(ConstantExpression e) {
+		if (e.getValue() instanceof LambdaExpression) {
+			((LambdaExpression) e.getValue()).getBody().accept(this);
+			return sb;
+		}
 		if (e.getValue() == null) {
-			sb.deleteCharAt(sb.length() - 1);
-			sb.delete(sb.lastIndexOf(" "), sb.length());
-			return sb.append(" IS NULL");
+			return sb.append("NULL");
 		}
 		if (e.getValue() instanceof String) {
 			return sb.append("'").append(e.getValue().toString()).append("'");
@@ -129,6 +142,11 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		return e.getBody().accept(this);
 	}
 
+	@Override
+	public StringBuilder visit(DelegateExpression e) {
+		return e.getDelegate().accept(this);
+	}
+
 	/**
 	 * An expression which represents a getter, and thus a field in a database, in the lambda expression.
 	 * For example:
@@ -158,6 +176,9 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	@Override
 	public StringBuilder visit(ParameterExpression e) {
 		arguments.top().get(e.getIndex()).accept(this);
+		if (e.getIndex() == arguments.top().size() - 1) {
+			arguments.pop();
+		}
 		return sb;
 	}
 
@@ -172,6 +193,11 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(UnaryExpression e) {
+		if (e.getFirst() instanceof UnaryExpression && e.getExpressionType() == ExpressionType.LogicalNot) {
+			if (e.getFirst().getExpressionType() == ExpressionType.IsNull) {
+				return ((UnaryExpression) e.getFirst()).getFirst().accept(this).append(" IS NOT NULL");
+			}
+		}
 		if (e.getExpressionType() == ExpressionType.IsNull) {
 			return e.getFirst().accept(this).append(" IS NULL");
 		}
