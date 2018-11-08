@@ -28,7 +28,7 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	ToSqlVisitor(String prefix) {
 		this.prefix = prefix;
 		this.sb = new StringBuilder();
-		arguments = new LinkedListStack<>();
+		this.arguments = new LinkedListStack<>();
 	}
 
 	/**
@@ -45,6 +45,10 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 				return "AND";
 			case ExpressionType.LogicalOr:
 				return "OR";
+			case ExpressionType.IsNull:
+				return " IS NULL";
+			case ExpressionType.IsNonNull:
+				return " IS NOT NULL";
 			case ExpressionType.Convert:
 				return "";
 		}
@@ -63,12 +67,12 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	@Override
 	public StringBuilder visit(BinaryExpression e) {
 		//Handling for null parameters
-		if (e.getSecond() instanceof ParameterExpression && arguments.top().get(((ParameterExpression) e.getSecond()).getIndex()).getValue() == null) {
+		if (e.getSecond() instanceof ParameterExpression && !arguments.top().isEmpty() && arguments.top().get(((ParameterExpression) e.getSecond()).getIndex()).getValue() == null) {
 			if (e.getExpressionType() == ExpressionType.Equal) {
 				return Expression.isNull(e.getFirst()).accept(this);
 			}
 			if (e.getExpressionType() == ExpressionType.NotEqual) {
-				return Expression.unary(ExpressionType.LogicalNot, boolean.class, Expression.unary(ExpressionType.IsNull, boolean.class, e.getFirst())).accept(this);
+				return Expression.isNonNull(e.getFirst()).accept(this);
 			}
 		}
 
@@ -94,12 +98,12 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(ConstantExpression e) {
+		if (e.getValue() == null) {
+			return sb.append("NULL");
+		}
 		if (e.getValue() instanceof LambdaExpression) {
 			((LambdaExpression) e.getValue()).getBody().accept(this);
 			return sb;
-		}
-		if (e.getValue() == null) {
-			return sb.append("NULL");
 		}
 		if (e.getValue() instanceof String) {
 			return sb.append("'").append(e.getValue().toString()).append("'");
@@ -193,16 +197,12 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(UnaryExpression e) {
-		if (e.getFirst() instanceof UnaryExpression && e.getExpressionType() == ExpressionType.LogicalNot) {
-			if (e.getFirst().getExpressionType() == ExpressionType.IsNull) {
-				return ((UnaryExpression) e.getFirst()).getFirst().accept(this).append(" IS NOT NULL");
-			}
+		if (e.getExpressionType() == ExpressionType.LogicalNot) {
+			sb.append("!");
+			return e.getFirst().accept(this);
 		}
-		if (e.getExpressionType() == ExpressionType.IsNull) {
-			return e.getFirst().accept(this).append(" IS NULL");
-		}
-		sb.append(toSqlOp(e.getExpressionType()));
-		return e.getFirst().accept(this);
+		e.getFirst().accept(this);
+		return sb.append(toSqlOp(e.getExpressionType()));
 	}
 
 }

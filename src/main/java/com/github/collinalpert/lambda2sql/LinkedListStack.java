@@ -18,13 +18,6 @@ public class LinkedListStack<T> {
 	private int elementCount;
 
 	/**
-	 * Constructor for creating an empty stack.
-	 */
-	public LinkedListStack() {
-		elementCount = 0;
-	}
-
-	/**
 	 * Pushes (adds) an element to the top of the stack.
 	 *
 	 * @param element The element to be added.
