@@ -13,6 +13,7 @@ import com.trigersoft.jaque.expression.ParameterExpression;
 import com.trigersoft.jaque.expression.UnaryExpression;
 
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -24,11 +25,15 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	private LinkedListStack<List<ConstantExpression>> arguments;
 	private StringBuilder sb;
 	private Expression body;
+	private StringComparisonTypes comparisonType;
+	private boolean stringComparisonNegation;
+	private Expression javaMethodParameter;
 
 	ToSqlVisitor(String prefix) {
 		this.prefix = prefix;
 		this.sb = new StringBuilder();
 		this.arguments = new LinkedListStack<>();
+		this.comparisonType = StringComparisonTypes.NONE;
 	}
 
 	/**
@@ -51,8 +56,9 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 				return " IS NOT NULL";
 			case ExpressionType.Convert:
 				return "";
+			default:
+				return ExpressionType.toString(expressionType);
 		}
-		return ExpressionType.toString(expressionType);
 	}
 
 	/**
@@ -81,7 +87,16 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 		if (quote) sb.append('(');
 
 		e.getFirst().accept(this);
-		sb.append(' ').append(toSqlOp(e.getExpressionType())).append(' ');
+		if (comparisonType == StringComparisonTypes.NONE) {
+			sb.append(' ').append(toSqlOp(e.getExpressionType())).append(' ');
+		} else {
+			if (stringComparisonNegation) {
+				sb.append(" NOT LIKE ");
+				stringComparisonNegation = false;
+			} else {
+				sb.append(" LIKE ");
+			}
+		}
 		e.getSecond().accept(this);
 
 		if (quote) sb.append(')');
@@ -106,7 +121,25 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 			return sb;
 		}
 		if (e.getValue() instanceof String) {
-			return sb.append("'").append(e.getValue().toString()).append("'");
+			sb.append("'");
+			switch (comparisonType) {
+				case STARTS_WITH:
+					sb.append(e.getValue()).append('%');
+					comparisonType = StringComparisonTypes.NONE;
+					break;
+				case ENDS_WITH:
+					sb.append('%').append(e.getValue());
+					comparisonType = StringComparisonTypes.NONE;
+					break;
+				case CONTAINS:
+					sb.append('%').append(e.getValue()).append('%');
+					comparisonType = StringComparisonTypes.NONE;
+					break;
+				case NONE:
+				default:
+					sb.append(e.getValue());
+			}
+			return sb.append("'");
 		}
 		return sb.append(e.getValue().toString());
 	}
@@ -128,6 +161,10 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 				.collect(Collectors.toList());
 		if (!list.isEmpty()) {
 			arguments.push(list);
+		}
+		Predicate<String> testForJavaMethod = s -> s.endsWith("startsWith") || s.endsWith("endsWith") || s.endsWith("contains");
+		if (testForJavaMethod.test(e.getTarget().toString())) {
+			javaMethodParameter = e.getArguments().get(0);
 		}
 		return e.getTarget().accept(this);
 	}
@@ -163,6 +200,19 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	@Override
 	public StringBuilder visit(MemberExpression e) {
 		String name = e.getMember().getName();
+		//for support for Java methods
+		if (name.equals("startsWith")) {
+			comparisonType = StringComparisonTypes.STARTS_WITH;
+			return Expression.binary(ExpressionType.Equal, e.getInstance(), javaMethodParameter).accept(this);
+		}
+		if (name.equals("endsWith")) {
+			comparisonType = StringComparisonTypes.ENDS_WITH;
+			return Expression.binary(ExpressionType.Equal, e.getInstance(), javaMethodParameter).accept(this);
+		}
+		if (name.equals("contains")) {
+			comparisonType = StringComparisonTypes.CONTAINS;
+			return Expression.binary(ExpressionType.Equal, e.getInstance(), javaMethodParameter).accept(this);
+		}
 		name = name.replaceAll("^(get)", "");
 		name = name.substring(0, 1).toLowerCase() + name.substring(1);
 		if (prefix == null) {
@@ -198,11 +248,21 @@ public class ToSqlVisitor implements ExpressionVisitor<StringBuilder> {
 	@Override
 	public StringBuilder visit(UnaryExpression e) {
 		if (e.getExpressionType() == ExpressionType.LogicalNot) {
-			sb.append("!");
+			//for support for negated Java methods
+			var name = ((MemberExpression) ((InvocationExpression) e.getFirst()).getTarget()).getMember().getName();
+			if (name.equals("startsWith") || name.equals("endsWith") || name.equals("contains")) {
+				stringComparisonNegation = true;
+			} else {
+				sb.append("!");
+			}
 			return e.getFirst().accept(this);
 		}
 		e.getFirst().accept(this);
 		return sb.append(toSqlOp(e.getExpressionType()));
+	}
+
+	private enum StringComparisonTypes {
+		NONE, STARTS_WITH, ENDS_WITH, CONTAINS
 	}
 
 }

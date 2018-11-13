@@ -116,8 +116,7 @@ class Lambda2SqlTest {
 		assertPredicateEqual("person.age = 18 AND (person.isAdult OR person.name = 'Steve')", p2);
 	}
 
-	//@Test
-	//This section does not work yet!
+	@Test
 	void testJavaFunctions() {
 		var name = "Steve";
 		var age = 18;
@@ -127,6 +126,7 @@ class Lambda2SqlTest {
 		assertPredicateEqual("person.name LIKE 'Steve%'", person -> person.getName().startsWith(name));
 		assertPredicateEqual("person.age >= 18 OR person.name NOT LIKE 'Steve%'", person -> person.getAge() >= age || !person.getName().startsWith(name));
 		assertPredicateEqual("person.name NOT LIKE 'Steve%'", person -> !person.getName().startsWith(name));
+		assertPredicateEqual("person.name NOT LIKE 'Steve%' AND !person.isActive", person -> !person.getName().startsWith(name) && !person.isActive());
 
 		assertPredicateEqual("person.age >= 18 OR person.name LIKE '%Steve'", person -> person.getAge() >= age || person.getName().endsWith("Steve"));
 		assertPredicateEqual("person.name LIKE '%Steve'", person -> person.getName().endsWith("Steve"));
@@ -141,6 +141,10 @@ class Lambda2SqlTest {
 		assertPredicateEqual("person.name LIKE '%Steve%'", person -> person.getName().contains(name));
 		assertPredicateEqual("person.age >= 18 OR person.name NOT LIKE '%Steve%'", person -> person.getAge() >= age || !person.getName().contains(name));
 		assertPredicateEqual("person.name NOT LIKE '%Steve%'", person -> !person.getName().contains(name));
+	}
+
+	@Test
+	void testSingle() {
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {
