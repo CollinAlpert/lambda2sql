@@ -20,7 +20,9 @@ import java.time.LocalTime;
 import java.time.chrono.ChronoLocalDate;
 import java.time.chrono.ChronoLocalDateTime;
 import java.time.temporal.Temporal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -61,6 +63,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 			put(String.class.getDeclaredMethod("endsWith", String.class), SqlVisitor.this::stringEndsWith);
 			put(String.class.getDeclaredMethod("contains", CharSequence.class), SqlVisitor.this::stringContains);
 			put(List.class.getDeclaredMethod("contains", Object.class), SqlVisitor.this::listContains);
+			put(ArrayList.class.getDeclaredMethod("contains", Object.class), SqlVisitor.this::listContains);
+			put(LinkedList.class.getDeclaredMethod("contains", Object.class), SqlVisitor.this::listContains);
 		} catch (NoSuchMethodException e) {
 			e.printStackTrace();
 		}

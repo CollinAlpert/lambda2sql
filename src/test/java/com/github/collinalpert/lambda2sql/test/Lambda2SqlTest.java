@@ -9,7 +9,9 @@ import org.junit.jupiter.api.Test;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 
 class Lambda2SqlTest implements Serializable {
 
@@ -170,8 +172,26 @@ class Lambda2SqlTest implements Serializable {
 	@Test
 	void testContains() {
 		var ids = Arrays.asList(1L, 2L, 3L, 4L);
+		var ids2 = new ArrayList<Long>();
+		ids2.add(2L);
+		ids2.add(4L);
+		ids2.add(6L);
+		ids2.add(8L);
+
+		var ids3 = new LinkedList<Long>();
+		ids3.add(3L);
+		ids3.add(6L);
+		ids3.add(9L);
+		ids3.add(12L);
+
 		assertPredicateEqual("person.id IN (1, 2, 3, 4)", person -> ids.contains(person.getId()));
 		assertPredicateEqual("person.id NOT IN (1, 2, 3, 4)", person -> !ids.contains(person.getId()));
+
+		assertPredicateEqual("person.id IN (2, 4, 6, 8)", person -> ids2.contains(person.getId()));
+		assertPredicateEqual("person.id NOT IN (2, 4, 6, 8)", person -> !ids2.contains(person.getId()));
+
+		assertPredicateEqual("person.id IN (3, 6, 9, 12)", person -> ids3.contains(person.getId()));
+		assertPredicateEqual("person.id NOT IN (3, 6, 9, 12)", person -> !ids3.contains(person.getId()));
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {
