@@ -6,7 +6,12 @@ import com.github.collinalpert.lambda2sql.functions.SqlPredicate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class Lambda2SqlTest {
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Arrays;
+
+class Lambda2SqlTest implements Serializable {
 
 	@Test
 	void testComparisons() {
@@ -35,13 +40,13 @@ class Lambda2SqlTest {
 	void testWithVariables() {
 		var name = "Donald";
 		var age = 80;
-		assertPredicateEqual("person.name = 'Donald' OR person.age > 80", person -> person.getName() == name || person.getAge() > age);
+		assertPredicateEqual("person.name = 'Donald' OR person.age > 80", person -> person.getName().equals(name) || person.getAge() > age);
 	}
 
 	@Test
 	void testFunction() {
-		assertFunctionEqual("name", IPerson::getName);
-		assertFunctionEqual("age", person -> person.getAge());
+		assertFunctionEqual("person.name", IPerson::getName);
+		assertFunctionEqual("person.age", person -> person.getAge());
 	}
 
 	@Test
@@ -69,12 +74,12 @@ class Lambda2SqlTest {
 
 	@Test
 	void testHigherLevelWithParameters() {
-		var name1 = "Donald";
-		var age1 = 80;
-		var name2 = "Steve";
-		SqlPredicate<IPerson> personPredicate = p -> (p.getName() == name1 || p.getAge() == age1);
-		personPredicate = personPredicate.and(p -> p.getName() == name2);
-		assertPredicateEqual("(person.name = 'Donald' OR person.age = 80) AND person.name = 'Steve'", personPredicate);
+		var age = 80;
+		var name = "Steve";
+		var localDate = LocalDate.of(1984, 1, 1);
+		SqlPredicate<IPerson> personPredicate = p -> (p.getName().equals("Donald") || p.getAge() == age);
+		personPredicate = personPredicate.and(p -> p.getName() == name).and(p -> p.getDate().isAfter(localDate)).or(p -> !p.isActive()).or(p -> p.getHeight() < 150);
+		assertPredicateEqual("((person.name = 'Donald' OR person.age = 80) AND person.name = 'Steve' AND person.date > '1984-01-01' OR !person.isActive) OR person.height < 150", personPredicate);
 	}
 
 	@Test
@@ -120,7 +125,8 @@ class Lambda2SqlTest {
 	void testJavaFunctions() {
 		var name = "Steve";
 		var age = 18;
-		assertPredicateEqual("person.age >= 18 OR person.name LIKE 'Steve%'", person -> person.getAge() >= age || person.getName().startsWith("Steve"));
+		assertPredicateEqual("person.name LIKE 'Steve%' OR person.age >= 18", person -> person.getName().startsWith("Steve") || person.getAge() >= age);
+		assertPredicateEqual("person.age >= 18 OR (person.name LIKE 'Steve%' OR person.name LIKE '%Steve')", person -> person.getAge() >= age || person.getName().startsWith("Steve") || person.getName().endsWith(name));
 		assertPredicateEqual("person.name LIKE 'Steve%'", person -> person.getName().startsWith("Steve"));
 		assertPredicateEqual("person.age >= 18 OR person.name LIKE 'Steve%'", person -> person.getAge() >= age || person.getName().startsWith(name));
 		assertPredicateEqual("person.name LIKE 'Steve%'", person -> person.getName().startsWith(name));
@@ -144,7 +150,28 @@ class Lambda2SqlTest {
 	}
 
 	@Test
-	void testSingle() {
+	void testFunctionByMethod() {
+		// TODO replace with method reference when this works
+		assertFunctionEqual("person.function", p -> getFunction(p));
+	}
+
+	@Test
+	void testJavaTime() {
+		var date = LocalDate.of(1990, 10, 5);
+		var time = LocalTime.of(6, 24, 13);
+		assertPredicateEqual("person.name LIKE 'Col%' AND person.date > '1990-10-05'", p -> p.getName().startsWith("Col") && p.getDate().isAfter(date));
+		assertPredicateEqual("person.name LIKE 'Col%' AND person.date <= '1990-10-05'", p -> p.getName().startsWith("Col") && !p.getDate().isAfter(date));
+		assertPredicateEqual("person.name LIKE 'Col%' AND person.date < '1990-10-05'", p -> p.getName().startsWith("Col") && p.getDate().isBefore(date));
+		assertPredicateEqual("person.name LIKE 'Col%' AND person.date >= '1990-10-05'", p -> p.getName().startsWith("Col") && !p.getDate().isBefore(date));
+		assertPredicateEqual("person.name LIKE 'Col%' AND person.date = '1990-10-05'", p -> p.getName().startsWith("Col") && p.getDate() == date);
+		assertPredicateEqual("person.time = '06:24:13' AND person.name LIKE 'Col%'", p -> p.getTime() == time && p.getName().startsWith("Col"));
+	}
+
+	@Test
+	void testContains() {
+		var ids = Arrays.asList(1L, 2L, 3L, 4L);
+		assertPredicateEqual("person.id IN (1, 2, 3, 4)", person -> ids.contains(person.getId()));
+		assertPredicateEqual("person.id NOT IN (1, 2, 3, 4)", person -> !ids.contains(person.getId()));
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {
@@ -153,7 +180,15 @@ class Lambda2SqlTest {
 	}
 
 	private void assertFunctionEqual(String expectedSql, SqlFunction<IPerson, ?> function) {
-		var sql = Lambda2Sql.toSql(function);
+		var sql = Lambda2Sql.toSql(function, "person");
 		Assertions.assertEquals(expectedSql, sql);
+	}
+
+	private SqlFunction<IPerson, ?> getFunction(IPerson p) {
+		if (p.getHeight() > 150) {
+			return IPerson::getHeight;
+		}
+
+		return IPerson::getAge;
 	}
 }

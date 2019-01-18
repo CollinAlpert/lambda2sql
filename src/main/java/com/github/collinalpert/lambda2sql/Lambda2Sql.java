@@ -21,7 +21,7 @@ public class Lambda2Sql {
 	 */
 	public static String toSql(SerializedFunctionalInterface functionalInterface, String prefix) {
 		var lambdaExpression = LambdaExpression.parse(functionalInterface);
-		return lambdaExpression.accept(new ToSqlVisitor(prefix)).toString();
+		return lambdaExpression.accept(new SqlVisitor(prefix)).toString();
 	}
 
 	public static String toSql(SerializedFunctionalInterface functionalInterface) {

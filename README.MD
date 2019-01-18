@@ -44,7 +44,7 @@ The interfaces ``SqlPredicate<T>`` and ``SqlFunction<T>`` can be used exactly li
 Features
 ---------
 
-Current version works with predicates, functions and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !
+Current version works with predicates, functions and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !. The DateTime API introduced in Java 8 is also supported.
 
 It is also possible to achieve ``LIKE`` operations using the String ``startsWith``, ``endsWith`` and ``contains`` methods.
 For example, the lambda expression\
@@ -62,7 +62,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>2.0</version>
+    <version>2.1</version>
 </dependency>
 ```
 
