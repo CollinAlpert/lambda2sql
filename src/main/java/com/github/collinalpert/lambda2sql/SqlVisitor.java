@@ -26,6 +26,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -51,7 +52,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 		}
 	}};
 
-	private final String prefix;
+	private final String tableName;
+	private final boolean withBackticks;
 	private final LinkedListStack<List<ConstantExpression>> arguments;
 
 	/**
@@ -69,16 +71,18 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 			e.printStackTrace();
 		}
 	}};
+
 	private StringBuilder sb;
 	private Expression body;
 	private Expression javaMethodParameter;
 
-	SqlVisitor(String prefix) {
-		this(prefix, new LinkedListStack<>());
+	SqlVisitor(String tableName, boolean withBackTicks) {
+		this(tableName, withBackTicks, new LinkedListStack<>());
 	}
 
-	private SqlVisitor(String prefix, LinkedListStack<List<ConstantExpression>> arguments) {
-		this.prefix = prefix;
+	private SqlVisitor(String tableName, boolean withBackticks, LinkedListStack<List<ConstantExpression>> arguments) {
+		this.tableName = tableName;
+		this.withBackticks = withBackticks;
 		this.arguments = arguments;
 		this.sb = new StringBuilder();
 	}
@@ -222,21 +226,22 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	@Override
 	public StringBuilder visit(MemberExpression e) {
 		if (registeredMethods.containsKey(e.getMember())) {
-			return Expression.binary(registeredMethods.get(e.getMember()), e.getInstance(), javaMethodParameter).accept(this);
+			return Expression.binary(registeredMethods.get(e.getMember()), e.getInstance(), this.javaMethodParameter).accept(this);
 		}
 
-		if (complexMethods.containsKey(e.getMember())) {
-			return sb.append(complexMethods.get(e.getMember()).apply(e.getInstance(), javaMethodParameter, false));
+		if (this.complexMethods.containsKey(e.getMember())) {
+			return sb.append(this.complexMethods.get(e.getMember()).apply(e.getInstance(), this.javaMethodParameter, false));
 		}
 
 		var nameArray = e.getMember().getName().replaceAll("^(get)", "").toCharArray();
 		nameArray[0] = Character.toLowerCase(nameArray[0]);
 		var name = new String(nameArray);
-		if (prefix == null) {
+		if (this.tableName == null) {
 			return sb.append(name);
 		}
 
-		return sb.append(prefix).append(".").append(name);
+		String escape = this.withBackticks ? "`" : "";
+		return sb.append(escape).append(this.tableName).append(escape).append(".").append(escape).append(name).append(escape);
 	}
 
 	/**
@@ -287,28 +292,30 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 
 	//region Complex Java methods
 
-	private StringBuilder stringStartsWith(Expression e, Expression e1, boolean negated) {
-		var valueBuilder = e1.accept(new SqlVisitor(this.prefix, this.arguments));
-		valueBuilder.insert(valueBuilder.length() - 1, '%');
-		return e.accept(new SqlVisitor(this.prefix, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
+	private StringBuilder stringStartsWith(Expression member, Expression argument, boolean negated) {
+		return doStringOperation(member, argument, negated, valueBuilder -> valueBuilder.insert(valueBuilder.length() - 1, '%'));
 	}
 
-	private StringBuilder stringEndsWith(Expression e, Expression e1, boolean negated) {
-		return e.accept(new SqlVisitor(this.prefix, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(e1.accept(new SqlVisitor(this.prefix, this.arguments)).insert(1, '%'));
+	private StringBuilder stringEndsWith(Expression member, Expression argument, boolean negated) {
+		return doStringOperation(member, argument, negated, valueBuilder -> valueBuilder.insert(1, '%'));
 	}
 
-	private StringBuilder stringContains(Expression e, Expression e1, boolean negated) {
-		var valueBuilder = e1.accept(new SqlVisitor(this.prefix, this.arguments));
-		valueBuilder.insert(1, '%').insert(valueBuilder.length() - 1, '%');
-		return e.accept(new SqlVisitor(this.prefix, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
+	private StringBuilder stringContains(Expression member, Expression argument, boolean negated) {
+		return doStringOperation(member, argument, negated, valueBuilder -> valueBuilder.insert(1, '%').insert(valueBuilder.length() - 1, '%'));
 	}
 
-	private StringBuilder listContains(Expression e, Expression e1, boolean negated) {
-		List l = (List) arguments.pop().get(((ParameterExpression) e).getIndex()).getValue();
+	private StringBuilder listContains(Expression listAsArgument, Expression argument, boolean negated) {
+		List l = (List) arguments.pop().get(((ParameterExpression) listAsArgument).getIndex()).getValue();
 		var joiner = new StringJoiner(", ", "(", ")");
 		l.forEach(x -> joiner.add(x.toString()));
-		return e1.accept(new SqlVisitor(this.prefix, this.arguments)).append(negated ? " NOT" : "").append(" IN ").append(joiner.toString());
+		return argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" IN ").append(joiner.toString());
 	}
 
 	//endregion
+
+	private StringBuilder doStringOperation(Expression member, Expression argument, boolean negated, Consumer<StringBuilder> modifier) {
+		var valueBuilder = argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments));
+		modifier.accept(valueBuilder);
+		return member.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
+	}
 }

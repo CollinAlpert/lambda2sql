@@ -16,15 +16,21 @@ public class Lambda2Sql {
 	 * Supported operators: {@code >,>=,<,<=,=,!=,&&,||,!}
 	 *
 	 * @param functionalInterface A {@link FunctionalInterface} lambda to convert.
-	 * @param prefix              An optional prefix to proceed the column name. Usually it is the table name.
+	 * @param tableName           The table name which the column belongs to. This will explicitly reference the column.
+	 *                            It is optional to specify this.
+	 * @param withBackticks       Specifies if the table and the column name should be escaped with backticks. The default behavior is {@code true}.
 	 * @return A {@link String} describing the SQL where condition.
 	 */
-	public static String toSql(SerializedFunctionalInterface functionalInterface, String prefix) {
+	public static String toSql(SerializedFunctionalInterface functionalInterface, String tableName, boolean withBackticks) {
 		var lambdaExpression = LambdaExpression.parse(functionalInterface);
-		return lambdaExpression.accept(new SqlVisitor(prefix)).toString();
+		return lambdaExpression.accept(new SqlVisitor(tableName, withBackticks)).toString();
+	}
+
+	public static String toSql(SerializedFunctionalInterface functionalInterface, String tableName) {
+		return toSql(functionalInterface, tableName, true);
 	}
 
 	public static String toSql(SerializedFunctionalInterface functionalInterface) {
-		return toSql(functionalInterface, null);
+		return toSql(functionalInterface, null, false);
 	}
 }

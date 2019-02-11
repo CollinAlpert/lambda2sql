@@ -51,6 +51,8 @@ For example, the lambda expression\
 ``person -> person.getAge() > 18 && person.getName().startsWith("Steve")``\
 would translate to:\
 ``person.age > 18 AND person.name LIKE 'Steve%'``
+
+Lambda2Sql also automatically escapes table names and columns with backticks (\`). If you do not wish this, you can specify it as an argument in the `Lambda2Sql.toSql()` method.
  
 Feel free to open an issue with any requests you might have.
 
@@ -62,7 +64,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 ```
 
