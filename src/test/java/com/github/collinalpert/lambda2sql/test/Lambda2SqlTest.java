@@ -153,8 +153,7 @@ class Lambda2SqlTest implements Serializable {
 
 	@Test
 	void testFunctionByMethod() {
-		// TODO replace with method reference when this works
-		assertFunctionEqual("`person`.`function`", p -> getFunction(p));
+		assertFunctionEqual("`person`.`height` ? `person`.`age`", this::getFunction);
 	}
 
 	@Test
