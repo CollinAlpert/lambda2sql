@@ -3,6 +3,7 @@ package com.github.collinalpert.lambda2sql.test;
 import com.github.collinalpert.lambda2sql.Lambda2Sql;
 import com.github.collinalpert.lambda2sql.functions.SqlFunction;
 import com.github.collinalpert.lambda2sql.functions.SqlPredicate;
+import com.trigersoft.jaque.expression.LambdaExpression;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -110,8 +111,11 @@ class Lambda2SqlTest implements Serializable {
 		var age = 17;
 		SqlPredicate<IPerson> p = person -> person.getAge() == age || person.getName() != isNull;
 		SqlPredicate<IPerson> p2 = person -> person.getName() != null;
+		SqlPredicate<IPerson> p3 = person -> person.getName() != null;
+		p3 = p3.and(t -> t.getAge() == 18);
 		assertPredicateEqual("`person`.`age` = 17 OR `person`.`name` IS NOT NULL", p);
 		assertPredicateEqual("`person`.`name` IS NOT NULL", p2);
+		assertPredicateEqual("`person`.`name` IS NOT NULL AND `person`.`age` = 18", p3);
 	}
 
 	@Test

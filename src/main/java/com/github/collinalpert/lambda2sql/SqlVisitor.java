@@ -160,7 +160,7 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 		}
 
 		if (e.getValue() instanceof String || e.getValue() instanceof Temporal) {
-			return sb.append("'").append(e.getValue()).append("'");
+			return sb.append("'").append(escapeString(e.getValue().toString())).append("'");
 		}
 
 		return sb.append(e.getValue().toString());
@@ -317,5 +317,10 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 		var valueBuilder = argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments));
 		modifier.accept(valueBuilder);
 		return member.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
+	}
+
+	private String escapeString(String input) {
+		input = input.replace("\\", "\\\\").replace("'", "\\'");
+		return input;
 	}
 }
