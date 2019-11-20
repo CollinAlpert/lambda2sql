@@ -1,7 +1,7 @@
 Lambda2sql (lambda) -> "sql"
 ==========
 
-**Please note:** This is a Java 10 library so make sure you have at least Java 10 installed when using it.
+**Please note:** This is a Java 13 library so make sure you have at least Java 10 installed when using it.
 
 Convert Java 8 lambdas to SQL statements.
 
@@ -64,7 +64,7 @@ You can include the Maven dependency:
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>2.1.4</version>
+    <version>2.2</version>
 </dependency>
 ```
 

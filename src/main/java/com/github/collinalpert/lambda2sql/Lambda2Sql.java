@@ -1,7 +1,7 @@
 package com.github.collinalpert.lambda2sql;
 
+import com.github.collinalpert.expressions.expression.LambdaExpression;
 import com.github.collinalpert.lambda2sql.functions.SerializedFunctionalInterface;
-import com.trigersoft.jaque.expression.LambdaExpression;
 
 /**
  * A utility class for converting java lambdas to SQL.

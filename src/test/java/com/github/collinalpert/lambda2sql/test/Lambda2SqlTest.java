@@ -3,7 +3,6 @@ package com.github.collinalpert.lambda2sql.test;
 import com.github.collinalpert.lambda2sql.Lambda2Sql;
 import com.github.collinalpert.lambda2sql.functions.SqlFunction;
 import com.github.collinalpert.lambda2sql.functions.SqlPredicate;
-import com.trigersoft.jaque.expression.LambdaExpression;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

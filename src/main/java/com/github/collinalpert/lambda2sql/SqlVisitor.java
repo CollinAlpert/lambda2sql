@@ -1,17 +1,17 @@
 package com.github.collinalpert.lambda2sql;
 
+import com.github.collinalpert.expressions.expression.BinaryExpression;
+import com.github.collinalpert.expressions.expression.ConstantExpression;
+import com.github.collinalpert.expressions.expression.DelegateExpression;
+import com.github.collinalpert.expressions.expression.Expression;
+import com.github.collinalpert.expressions.expression.ExpressionType;
+import com.github.collinalpert.expressions.expression.ExpressionVisitor;
+import com.github.collinalpert.expressions.expression.InvocationExpression;
+import com.github.collinalpert.expressions.expression.LambdaExpression;
+import com.github.collinalpert.expressions.expression.MemberExpression;
+import com.github.collinalpert.expressions.expression.ParameterExpression;
+import com.github.collinalpert.expressions.expression.UnaryExpression;
 import com.github.collinalpert.lambda2sql.functions.TriFunction;
-import com.trigersoft.jaque.expression.BinaryExpression;
-import com.trigersoft.jaque.expression.ConstantExpression;
-import com.trigersoft.jaque.expression.DelegateExpression;
-import com.trigersoft.jaque.expression.Expression;
-import com.trigersoft.jaque.expression.ExpressionType;
-import com.trigersoft.jaque.expression.ExpressionVisitor;
-import com.trigersoft.jaque.expression.InvocationExpression;
-import com.trigersoft.jaque.expression.LambdaExpression;
-import com.trigersoft.jaque.expression.MemberExpression;
-import com.trigersoft.jaque.expression.ParameterExpression;
-import com.trigersoft.jaque.expression.UnaryExpression;
 
 import java.lang.reflect.Member;
 import java.time.LocalDate;
@@ -130,7 +130,9 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 
 		boolean quote = e != this.body && e.getExpressionType() == ExpressionType.LogicalOr;
 
-		if (quote) sb.append('(');
+		if (quote) {
+			sb.append('(');
+		}
 
 		e.getFirst().accept(this);
 
@@ -138,7 +140,9 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 
 		e.getSecond().accept(this);
 
-		if (quote) sb.append(')');
+		if (quote) {
+			sb.append(')');
+		}
 
 		return sb;
 	}
@@ -201,7 +205,7 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 * @return A {@link StringBuilder} containing the body of the lambda expression.
 	 */
 	@Override
-	public StringBuilder visit(LambdaExpression<?> e) {
+	public StringBuilder visit(LambdaExpression e) {
 		if (this.body == null && e.getBody() instanceof BinaryExpression) {
 			this.body = e.getBody();
 		}
@@ -308,6 +312,7 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 		List l = (List) arguments.pop().get(((ParameterExpression) listAsArgument).getIndex()).getValue();
 		var joiner = new StringJoiner(", ", "(", ")");
 		l.forEach(x -> joiner.add(x.toString()));
+
 		return argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" IN ").append(joiner.toString());
 	}
 
@@ -316,11 +321,11 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	private StringBuilder doStringOperation(Expression member, Expression argument, boolean negated, Consumer<StringBuilder> modifier) {
 		var valueBuilder = argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments));
 		modifier.accept(valueBuilder);
+
 		return member.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
 	}
 
 	private String escapeString(String input) {
-		input = input.replace("\\", "\\\\").replace("'", "\\'");
-		return input;
+		return input.replace("\\", "\\\\").replace("'", "\\'");
 	}
 }
