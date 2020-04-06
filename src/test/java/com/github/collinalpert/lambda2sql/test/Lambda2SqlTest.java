@@ -100,7 +100,9 @@ class Lambda2SqlTest implements Serializable {
 		SqlPredicate<IPerson> p2 = person -> person.getName() == null;
 		SqlPredicate<IPerson> p3 = person -> person.getAge() >= i && person.getAge() <= age;
 		assertPredicateEqual("`person`.`age` = 17 OR `person`.`name` IS NULL", p);
+		assertPredicateEqual("(`person`.`age` = 17 OR `person`.`name` IS NULL) AND true", p.and(x -> true));
 		assertPredicateEqual("`person`.`name` IS NULL", p2);
+		assertPredicateEqual("`person`.`name` IS NULL AND true", p2.and(x -> true));
 		assertPredicateEqual("`person`.`age` >= NULL AND `person`.`age` <= 17", p3);
 	}
 
@@ -194,6 +196,14 @@ class Lambda2SqlTest implements Serializable {
 
 		assertPredicateEqual("`person`.`id` IN (3, 6, 9, 12)", person -> ids3.contains(person.getId()));
 		assertPredicateEqual("`person`.`id` NOT IN (3, 6, 9, 12)", person -> !ids3.contains(person.getId()));
+	}
+
+	@Test
+	void testLastParameterNull() {
+		String s = null;
+		SqlPredicate<IPerson> alwaysTrue = x -> true;
+		SqlPredicate<IPerson> pred = x -> x.getName() == s;
+		assertPredicateEqual("`person`.`name` IS NULL AND true", pred.and(alwaysTrue));
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {

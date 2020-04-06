@@ -125,6 +125,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	public StringBuilder visit(BinaryExpression e) {
 		//Handling for null parameters
 		if (e.getSecond() instanceof ParameterExpression && !arguments.top().isEmpty() && arguments.top().get(((ParameterExpression) e.getSecond()).getIndex()).getValue() == null) {
+			//If we don't pop here and there are more expressions after this one, they will work with an incorrect argument.
+			arguments.pop();
 			return Expression.unary(e.getExpressionType() == ExpressionType.Equal ? ExpressionType.IsNull : ExpressionType.IsNonNull, Boolean.TYPE, e.getFirst()).accept(this);
 		}
 
