@@ -81,8 +81,8 @@ public class LinkedListStack<T> {
 		/**
 		 * Reference to the next element in the stack.
 		 */
-		private Node next;
-		private T value;
+		private final Node next;
+		private final T value;
 
 		/**
 		 * Constructor for creating an element with a value and a reference to the next element in the stack.

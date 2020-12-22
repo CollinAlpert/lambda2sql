@@ -1,13 +1,13 @@
 package com.github.collinalpert.lambda2sql.test;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 
 public interface IPerson {
 	long getId();
 
 	String getName();
+
+	String getLastName();
 
 	int getAge();
 
@@ -25,5 +25,9 @@ public interface IPerson {
 
 	default boolean isAdult() {
 		return getAge() >= 18;
+	}
+
+	default Boolean isNullable() {
+		return null;
 	}
 }

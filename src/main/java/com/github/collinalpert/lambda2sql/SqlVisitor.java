@@ -1,31 +1,13 @@
 package com.github.collinalpert.lambda2sql;
 
-import com.github.collinalpert.expressions.expression.BinaryExpression;
-import com.github.collinalpert.expressions.expression.ConstantExpression;
-import com.github.collinalpert.expressions.expression.DelegateExpression;
-import com.github.collinalpert.expressions.expression.Expression;
-import com.github.collinalpert.expressions.expression.ExpressionType;
-import com.github.collinalpert.expressions.expression.ExpressionVisitor;
-import com.github.collinalpert.expressions.expression.InvocationExpression;
-import com.github.collinalpert.expressions.expression.LambdaExpression;
-import com.github.collinalpert.expressions.expression.MemberExpression;
-import com.github.collinalpert.expressions.expression.ParameterExpression;
-import com.github.collinalpert.expressions.expression.UnaryExpression;
+import com.github.collinalpert.expressions.expression.*;
 import com.github.collinalpert.lambda2sql.functions.TriFunction;
 
 import java.lang.reflect.Member;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.chrono.ChronoLocalDate;
-import java.time.chrono.ChronoLocalDateTime;
+import java.time.*;
+import java.time.chrono.*;
 import java.time.temporal.Temporal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -37,54 +19,87 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	/**
 	 * The supported methods that can be used on Java objects inside the lambda expressions.
 	 */
-	private static final Map<Member, Integer> registeredMethods = new HashMap<>() {{
+	private static final Map<Member, Integer> operatorMethods;
+	private static final Map<Member, String> sqlFunctionMethods;
+
+	static {
+		operatorMethods = new HashMap<>(8, 1);
+		sqlFunctionMethods = new HashMap<>(4, 1);
+
 		try {
-			put(String.class.getDeclaredMethod("equals", Object.class), ExpressionType.Equal);
-			put(Object.class.getDeclaredMethod("equals", Object.class), ExpressionType.Equal);
-			put(LocalDate.class.getDeclaredMethod("isAfter", ChronoLocalDate.class), ExpressionType.GreaterThan);
-			put(LocalTime.class.getDeclaredMethod("isAfter", LocalTime.class), ExpressionType.GreaterThan);
-			put(LocalDateTime.class.getDeclaredMethod("isAfter", ChronoLocalDateTime.class), ExpressionType.GreaterThan);
-			put(LocalDate.class.getDeclaredMethod("isBefore", ChronoLocalDate.class), ExpressionType.LessThan);
-			put(LocalTime.class.getDeclaredMethod("isBefore", LocalTime.class), ExpressionType.LessThan);
-			put(LocalDateTime.class.getDeclaredMethod("isBefore", ChronoLocalDateTime.class), ExpressionType.LessThan);
+			operatorMethods.put(String.class.getDeclaredMethod("equals", Object.class), ExpressionType.Equal);
+			operatorMethods.put(Object.class.getDeclaredMethod("equals", Object.class), ExpressionType.Equal);
+			operatorMethods.put(LocalDate.class.getDeclaredMethod("isAfter", ChronoLocalDate.class), ExpressionType.GreaterThan);
+			operatorMethods.put(LocalTime.class.getDeclaredMethod("isAfter", LocalTime.class), ExpressionType.GreaterThan);
+			operatorMethods.put(LocalDateTime.class.getDeclaredMethod("isAfter", ChronoLocalDateTime.class), ExpressionType.GreaterThan);
+			operatorMethods.put(LocalDate.class.getDeclaredMethod("isBefore", ChronoLocalDate.class), ExpressionType.LessThan);
+			operatorMethods.put(LocalTime.class.getDeclaredMethod("isBefore", LocalTime.class), ExpressionType.LessThan);
+			operatorMethods.put(LocalDateTime.class.getDeclaredMethod("isBefore", ChronoLocalDateTime.class), ExpressionType.LessThan);
+
+			sqlFunctionMethods.put(SqlFunctions.class.getDeclaredMethod("sum", Object.class), "SUM");
+			sqlFunctionMethods.put(SqlFunctions.class.getDeclaredMethod("min", Object.class), "MIN");
+			sqlFunctionMethods.put(SqlFunctions.class.getDeclaredMethod("max", Object.class), "MAX");
 		} catch (NoSuchMethodException e) {
 			e.printStackTrace();
 		}
-	}};
+	}
 
 	private final String tableName;
 	private final boolean withBackticks;
 	private final LinkedListStack<List<ConstantExpression>> arguments;
+	private final Map<String, Integer> parameterConsumptionCount;
 
 	/**
 	 * More complex methods that can be used on Java objects inside the lambda expressions.
 	 */
-	private final Map<Member, TriFunction<Expression, Expression, Boolean, StringBuilder>> complexMethods = new HashMap<>() {{
-		try {
-			put(String.class.getDeclaredMethod("startsWith", String.class), SqlVisitor.this::stringStartsWith);
-			put(String.class.getDeclaredMethod("endsWith", String.class), SqlVisitor.this::stringEndsWith);
-			put(String.class.getDeclaredMethod("contains", CharSequence.class), SqlVisitor.this::stringContains);
-			put(List.class.getDeclaredMethod("contains", Object.class), SqlVisitor.this::listContains);
-			put(ArrayList.class.getDeclaredMethod("contains", Object.class), SqlVisitor.this::listContains);
-			put(LinkedList.class.getDeclaredMethod("contains", Object.class), SqlVisitor.this::listContains);
-		} catch (NoSuchMethodException e) {
-			e.printStackTrace();
-		}
-	}};
+	private final Map<Member, TriFunction<Expression, Expression, Boolean, StringBuilder>> complexMethods;
 
-	private StringBuilder sb;
+	private final StringBuilder sb;
 	private Expression body;
 	private Expression javaMethodParameter;
 
 	SqlVisitor(String tableName, boolean withBackTicks) {
-		this(tableName, withBackTicks, new LinkedListStack<>());
+		this(tableName, withBackTicks, null, new LinkedListStack<>());
 	}
 
-	private SqlVisitor(String tableName, boolean withBackticks, LinkedListStack<List<ConstantExpression>> arguments) {
+	private SqlVisitor(String tableName, boolean withBackticks, Expression body, LinkedListStack<List<ConstantExpression>> arguments) {
 		this.tableName = tableName;
 		this.withBackticks = withBackticks;
+		this.body = body;
 		this.arguments = arguments;
 		this.sb = new StringBuilder();
+		this.parameterConsumptionCount = new HashMap<>();
+
+		this.complexMethods = new HashMap<>(32, 1);
+		try {
+			this.complexMethods.put(String.class.getDeclaredMethod("startsWith", String.class), this::stringStartsWith);
+			this.complexMethods.put(String.class.getDeclaredMethod("endsWith", String.class), this::stringEndsWith);
+			this.complexMethods.put(String.class.getDeclaredMethod("contains", CharSequence.class), this::stringContains);
+			this.complexMethods.put(String.class.getDeclaredMethod("length"), (string, argument, isNegated) -> applySqlFunction(string, "LENGTH"));
+
+			this.complexMethods.put(List.class.getDeclaredMethod("contains", Object.class), this::listContains);
+			this.complexMethods.put(ArrayList.class.getDeclaredMethod("contains", Object.class), this::listContains);
+			this.complexMethods.put(LinkedList.class.getDeclaredMethod("contains", Object.class), this::listContains);
+
+			this.complexMethods.put(LocalTime.class.getDeclaredMethod("getSecond"), (date, argument, isNegated) -> applySqlFunction(date, "SECOND"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getSecond"), (date, argument, isNegated) -> applySqlFunction(date, "SECOND"));
+			this.complexMethods.put(LocalTime.class.getDeclaredMethod("getMinute"), (date, argument, isNegated) -> applySqlFunction(date, "MINUTE"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getMinute"), (date, argument, isNegated) -> applySqlFunction(date, "MINUTE"));
+			this.complexMethods.put(LocalTime.class.getDeclaredMethod("getHour"), (date, argument, isNegated) -> applySqlFunction(date, "HOUR"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getHour"), (date, argument, isNegated) -> applySqlFunction(date, "HOUR"));
+			this.complexMethods.put(LocalDate.class.getDeclaredMethod("getDayOfWeek"), (date, argument, isNegated) -> applySqlFunction(date, "DAYOFWEEK"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getDayOfWeek"), (date, argument, isNegated) -> applySqlFunction(date, "DAYOFWEEK"));
+			this.complexMethods.put(LocalDate.class.getDeclaredMethod("getDayOfMonth"), (date, argument, isNegated) -> applySqlFunction(date, "DAY"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getDayOfWeek"), (date, argument, isNegated) -> applySqlFunction(date, "DAY"));
+			this.complexMethods.put(LocalDate.class.getDeclaredMethod("getDayOfYear"), (date, argument, isNegated) -> applySqlFunction(date, "DAYOFYEAR"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getDayOfYear"), (date, argument, isNegated) -> applySqlFunction(date, "DAYOFYEAR"));
+			this.complexMethods.put(LocalDate.class.getDeclaredMethod("getMonthValue"), (date, argument, isNegated) -> applySqlFunction(date, "MONTH"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getMonthValue"), (date, argument, isNegated) -> applySqlFunction(date, "MONTH"));
+			this.complexMethods.put(LocalDate.class.getDeclaredMethod("getYear"), (date, argument, isNegated) -> applySqlFunction(date, "YEAR"));
+			this.complexMethods.put(LocalDateTime.class.getDeclaredMethod("getYear"), (date, argument, isNegated) -> applySqlFunction(date, "YEAR"));
+		} catch (NoSuchMethodException e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -182,7 +197,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(InvocationExpression e) {
-		if (e.getTarget() instanceof LambdaExpression) {
+		var target = e.getTarget();
+		if (target instanceof LambdaExpression) {
 			var list = e.getArguments()
 					.stream()
 					.filter(x -> x instanceof ConstantExpression)
@@ -191,6 +207,15 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 			if (!list.isEmpty()) {
 				arguments.push(list);
 			}
+		}
+
+		String sqlFunctionName;
+		if (target instanceof MemberExpression && (sqlFunctionName = sqlFunctionMethods.get(((MemberExpression) e.getTarget()).getMember())) != null) {
+			sb.append(sqlFunctionName).append('(');
+			e.getArguments().get(0).accept(this);
+			sb.append(')');
+
+			return sb;
 		}
 
 		if (e.getTarget().getExpressionType() == ExpressionType.MethodAccess && !e.getArguments().isEmpty()) {
@@ -208,7 +233,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(LambdaExpression e) {
-		if (this.body == null && e.getBody() instanceof BinaryExpression) {
+		if (this.body == null && !(e.getBody() instanceof InvocationExpression)
+				|| (e.getBody() instanceof InvocationExpression && !(((InvocationExpression) (e.getBody())).getTarget() instanceof LambdaExpression))) {
 			this.body = e.getBody();
 		}
 
@@ -231,8 +257,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	 */
 	@Override
 	public StringBuilder visit(MemberExpression e) {
-		if (registeredMethods.containsKey(e.getMember())) {
-			return Expression.binary(registeredMethods.get(e.getMember()), e.getInstance(), this.javaMethodParameter).accept(this);
+		if (operatorMethods.containsKey(e.getMember())) {
+			return Expression.binary(operatorMethods.get(e.getMember()), e.getInstance(), this.javaMethodParameter).accept(this);
 		}
 
 		if (this.complexMethods.containsKey(e.getMember())) {
@@ -260,17 +286,28 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 	public StringBuilder visit(ParameterExpression e) {
 		arguments.top().get(e.getIndex()).accept(this);
 		if (e.getIndex() == arguments.top().size() - 1) {
-			arguments.pop();
+			var numberOfParameterUsages = countParameterUsages(e);
+			// If parameter is used exactly once in the expression or has been consumed for as many times as it occurs, it can be removed.
+			if (this.arguments.size() > 1 || numberOfParameterUsages == 1 || numberOfParameterUsages == parameterConsumptionCount.merge(e.toString(), 1, Integer::sum)) {
+				arguments.pop();
+			}
 		}
 
 		return sb;
+	}
+
+	private int countParameterUsages(ParameterExpression e) {
+		var identifier = e.toString();
+		var expressionString = this.body.toString();
+
+		return expressionString.split(identifier, -1).length - 1;
 	}
 
 	/**
 	 * Converts a unary expression to the SQL equivalent.
 	 * For example:
 	 * {@code person -> !person.isActive();}
-	 * becomes: !active
+	 * becomes: !isActive
 	 *
 	 * @param e the {@link UnaryExpression} to convert
 	 * @return A {@link StringBuilder} with the unary expression appended.
@@ -281,8 +318,8 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 			//for support for negated Java methods
 			var invocationExpression = (InvocationExpression) e.getFirst();
 			var memberExpression = (MemberExpression) invocationExpression.getTarget();
-			if (registeredMethods.containsKey(memberExpression.getMember())) {
-				return Expression.logicalNot(Expression.binary(registeredMethods.get(memberExpression.getMember()), memberExpression.getInstance(), invocationExpression.getArguments().get(0))).accept(this);
+			if (operatorMethods.containsKey(memberExpression.getMember())) {
+				return Expression.logicalNot(Expression.binary(operatorMethods.get(memberExpression.getMember()), memberExpression.getInstance(), invocationExpression.getArguments().get(0))).accept(this);
 			} else if (complexMethods.containsKey(memberExpression.getMember())) {
 				return sb.append(complexMethods.get(memberExpression.getMember()).apply(memberExpression.getInstance(), invocationExpression.getArguments().get(0), true));
 			} else {
@@ -298,33 +335,37 @@ public class SqlVisitor implements ExpressionVisitor<StringBuilder> {
 
 	//region Complex Java methods
 
-	private StringBuilder stringStartsWith(Expression member, Expression argument, boolean negated) {
-		return doStringOperation(member, argument, negated, valueBuilder -> valueBuilder.insert(valueBuilder.length() - 1, '%'));
+	private StringBuilder stringStartsWith(Expression string, Expression argument, boolean isNegated) {
+		return doStringOperation(string, argument, isNegated, valueBuilder -> valueBuilder.insert(valueBuilder.length() - 1, '%'));
 	}
 
-	private StringBuilder stringEndsWith(Expression member, Expression argument, boolean negated) {
-		return doStringOperation(member, argument, negated, valueBuilder -> valueBuilder.insert(1, '%'));
+	private StringBuilder stringEndsWith(Expression string, Expression argument, boolean isNegated) {
+		return doStringOperation(string, argument, isNegated, valueBuilder -> valueBuilder.insert(1, '%'));
 	}
 
-	private StringBuilder stringContains(Expression member, Expression argument, boolean negated) {
-		return doStringOperation(member, argument, negated, valueBuilder -> valueBuilder.insert(1, '%').insert(valueBuilder.length() - 1, '%'));
+	private StringBuilder stringContains(Expression string, Expression argument, boolean isNegated) {
+		return doStringOperation(string, argument, isNegated, valueBuilder -> valueBuilder.insert(1, '%').insert(valueBuilder.length() - 1, '%'));
 	}
 
-	private StringBuilder listContains(Expression listAsArgument, Expression argument, boolean negated) {
-		List l = (List) arguments.pop().get(((ParameterExpression) listAsArgument).getIndex()).getValue();
+	private StringBuilder listContains(Expression list, Expression argument, boolean isNegated) {
+		List l = (List) arguments.pop().get(((ParameterExpression) list).getIndex()).getValue();
 		var joiner = new StringJoiner(", ", "(", ")");
 		l.forEach(x -> joiner.add(x.toString()));
 
-		return argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" IN ").append(joiner.toString());
+		return argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.body, this.arguments)).append(isNegated ? " NOT" : "").append(" IN ").append(joiner.toString());
+	}
+
+	private StringBuilder applySqlFunction(Expression date, String field) {
+		return new StringBuilder().append(field).append("(").append(date.accept(new SqlVisitor(this.tableName, this.withBackticks, this.body, this.arguments))).append(')');
 	}
 
 	//endregion
 
-	private StringBuilder doStringOperation(Expression member, Expression argument, boolean negated, Consumer<StringBuilder> modifier) {
-		var valueBuilder = argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments));
+	private StringBuilder doStringOperation(Expression member, Expression argument, boolean isNegated, Consumer<StringBuilder> modifier) {
+		var valueBuilder = argument.accept(new SqlVisitor(this.tableName, this.withBackticks, this.body, this.arguments));
 		modifier.accept(valueBuilder);
 
-		return member.accept(new SqlVisitor(this.tableName, this.withBackticks, this.arguments)).append(negated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
+		return member.accept(new SqlVisitor(this.tableName, this.withBackticks, this.body, this.arguments)).append(isNegated ? " NOT" : "").append(" LIKE ").append(valueBuilder);
 	}
 
 	private String escapeString(String input) {

@@ -31,40 +31,53 @@ String sql = Lambda2Sql.toSql(predicate); // person.age < 100 AND person.height 
 How it works
 ---------
 
-It uses [JaQue](https://github.com/TrigerSoft/jaque) to build an expression tree for a lambda. The expression tree is then traversed and converted to a SQL statement. 
+It uses [Expressions](https://github.com/CollinAlpert/Expressions) (based
+upon [JaQue](https://github.com/TrigerSoft/jaque)) to build an expression tree for a lambda. The expression tree is then
+traversed and converted to an SQL WHERE clause.
 
-Under the hood, JaQue depends on the system property `jdk.internal.lambda.dumpProxyClasses`, if the lambda expression is not serialized:
-See [https://bugs.openjdk.java.net/browse/JDK-8023524](https://bugs.openjdk.java.net/browse/JDK-8023524).
+**The following is only for explanatory purposes. You do not need to set this property anywhere, as long as you use the
+interfaces ``SqlPredicate<T>`` and ``SqlFunction<T>``**:\
+Under the hood, JaQue depends on the system property `jdk.internal.lambda.dumpProxyClasses`, if the lambda expression is
+not serialized:
+See [https://bugs.openjdk.java.net/browse/JDK-8023524](https://bugs.openjdk.java.net/browse/JDK-8023524). \
+When the property is enabled, JVM generated classes for lambdas are saved to disk. JaQue then
+uses [ASM](http://asm.ow2.org/) to read the .class files and creates expression trees.
 
-When the property is enabled, JVM generated classes for lambdas are saved to disk. JaQue then uses [ASM](http://asm.ow2.org/) to read the .class files and creates expression trees.
-
-Since the functional interfaces included in this project are automatically serialized, there is no need to set this property.
-The interfaces ``SqlPredicate<T>`` and ``SqlFunction<T>`` can be used exactly like the original functional interfaces.
+Since the functional interfaces included in this project are automatically serialized, there is no need to set this
+property. The interfaces ``SqlPredicate<T>`` and ``SqlFunction<T>`` can be used exactly like the original functional
+interfaces.
 
 Features
 ---------
 
-Current version works with predicates, functions and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !. The DateTime API introduced in Java 8 is also supported.
+Current version works with predicates, functions and supports the following operators: >, >=, <, <=, =, !=, &&, ||, !.
+The DateTime API introduced in Java 8 is also supported (`.isBefore()`/`.isAfter()`).
 
-It is also possible to achieve ``LIKE`` operations using the String ``startsWith``, ``endsWith`` and ``contains`` methods.
-For example, the lambda expression\
+It is also possible to achieve ``LIKE`` operations using the String ``startsWith``, ``endsWith`` and ``contains``
+methods. For example, the lambda expression\
 ``person -> person.getAge() > 18 && person.getName().startsWith("Steve")``\
 would translate to:\
 ``person.age > 18 AND person.name LIKE 'Steve%'``
 
-Lambda2Sql also automatically escapes table names and columns with backticks (\`). If you do not wish this, you can specify it as an argument in the `Lambda2Sql.toSql()` method.
- 
+Most common SQL functions are supported as well. For example, ``person -> person.getBirthDate().getYear()`` will
+yield `YEAR(person.birthDate)`.\
+``person -> SqlFunctions.sum(person.getAge())`` will yield `SUM(person.age)`
+
+Lambda2Sql also automatically escapes table names and columns with backticks (\`). If you do not wish this, you can
+specify it as an argument in the `Lambda2Sql.toSql()` method.
+
 Feel free to open an issue with any requests you might have.
 
 Install
 -------
 
 You can include the Maven dependency:
+
 ```xml
 <dependency>
     <groupId>com.github.collinalpert</groupId>
     <artifactId>lambda2sql</artifactId>
-    <version>2.2.2</version>
+    <version>2.4.0</version>
 </dependency>
 ```
 

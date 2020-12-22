@@ -1,17 +1,14 @@
 package com.github.collinalpert.lambda2sql.test;
 
 import com.github.collinalpert.lambda2sql.Lambda2Sql;
-import com.github.collinalpert.lambda2sql.functions.SqlFunction;
-import com.github.collinalpert.lambda2sql.functions.SqlPredicate;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import com.github.collinalpert.lambda2sql.functions.*;
+import org.junit.jupiter.api.*;
 
 import java.io.Serializable;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
+import java.time.*;
+import java.util.*;
+
+import static com.github.collinalpert.lambda2sql.SqlFunctions.*;
 
 class Lambda2SqlTest implements Serializable {
 
@@ -54,7 +51,15 @@ class Lambda2SqlTest implements Serializable {
 	@Test
 	void testMethodReferences() {
 		SqlPredicate<IPerson> person = IPerson::isAdult;
+		SqlPredicate<IPerson> person2 = p -> p.isNullable();
+		SqlPredicate<IPerson> person3 = IPerson::isNullable;
 		SqlPredicate<IPerson> personAnd = person.and(x -> true);
+
+		assertPredicateEqual("`person`.`isAdult`", person);
+		assertPredicateEqual("`person`.`isNullable`", person2);
+		assertPredicateEqual("`person`.`isNullable`", person3);
+		assertPredicateEqual("`person`.`isNullable` AND true", person2.and(x -> true));
+		assertPredicateEqual("`person`.`isNullable` AND true", person3.and(x -> true));
 		assertPredicateEqual("`person`.`isAdult` AND true", personAnd);
 	}
 
@@ -107,6 +112,14 @@ class Lambda2SqlTest implements Serializable {
 	}
 
 	@Test
+	void testBraces() {
+		SqlPredicate<IPerson> p1 = person -> person.getName() == "Steve" && person.getAge() == 18 || person.getLastName() == "T";
+		SqlPredicate<IPerson> p2 = person -> person.getName() == "Steve" && (person.getAge() == 18 || person.getLastName() == "T");
+		assertPredicateEqual("`person`.`name` = 'Steve' AND `person`.`age` = 18 OR `person`.`lastName` = 'T'", p1);
+		assertPredicateEqual("`person`.`name` = 'Steve' AND (`person`.`age` = 18 OR `person`.`lastName` = 'T')", p2);
+	}
+
+	@Test
 	void testNotNull() {
 		String isNull = null;
 		var age = 17;
@@ -134,6 +147,7 @@ class Lambda2SqlTest implements Serializable {
 		var age = 18;
 		assertPredicateEqual("`person`.`name` LIKE 'Steve%' OR `person`.`age` >= 18", person -> person.getName().startsWith("Steve") || person.getAge() >= age);
 		assertPredicateEqual("`person`.`age` >= 18 OR (`person`.`name` LIKE 'Steve%' OR `person`.`name` LIKE '%Steve')", person -> person.getAge() >= age || person.getName().startsWith("Steve") || person.getName().endsWith(name));
+		assertPredicateEqual("`person`.`age` >= 18 OR (`person`.`name` LIKE 'Steve%' OR `person`.`name` LIKE '%Steve')", person -> person.getAge() >= age || person.getName().startsWith(name) || person.getName().endsWith(name));
 		assertPredicateEqual("`person`.`name` LIKE 'Steve%'", person -> person.getName().startsWith("Steve"));
 		assertPredicateEqual("`person`.`age` >= 18 OR `person`.`name` LIKE 'Steve%'", person -> person.getAge() >= age || person.getName().startsWith(name));
 		assertPredicateEqual("`person`.`name` LIKE 'Steve%'", person -> person.getName().startsWith(name));
@@ -204,6 +218,41 @@ class Lambda2SqlTest implements Serializable {
 		SqlPredicate<IPerson> alwaysTrue = x -> true;
 		SqlPredicate<IPerson> pred = x -> x.getName() == s;
 		assertPredicateEqual("`person`.`name` IS NULL AND true", pred.and(alwaysTrue));
+	}
+
+	@Test
+	void testMultipleSameParameter() {
+		String s = "Steve";
+		SqlPredicate<IPerson> p = x -> x.getName() == s || x.getLastName() == s;
+		assertPredicateEqual("`person`.`name` = 'Steve' OR `person`.`lastName` = 'Steve'", p);
+	}
+
+	@Test
+	void testMethods() {
+		var name = "Steve";
+
+		SqlPredicate<IPerson> yearPredicate = p -> p.getDate().getYear() == 1250 && p.getName() == "Steve";
+		SqlPredicate<IPerson> yearNegatedPredicate = p -> p.getDate().getYear() != 1250 && p.getName() == name;
+		SqlPredicate<IPerson> monthPredicate = p -> p.getDate().getMonthValue() <= 10;
+		SqlPredicate<IPerson> lengthPredicate = p -> p.getName().length() > 6;
+
+		assertPredicateEqual("YEAR(`person`.`date`) = 1250 AND `person`.`name` = 'Steve'", yearPredicate);
+		assertPredicateEqual("YEAR(`person`.`date`) != 1250 AND `person`.`name` = 'Steve'", yearNegatedPredicate);
+		assertPredicateEqual("MONTH(`person`.`date`) <= 10", monthPredicate);
+		assertPredicateEqual("LENGTH(`person`.`name`) > 6", lengthPredicate);
+	}
+
+	@Test
+	void testSqlFunctions() {
+		var name = "Steve";
+
+		SqlPredicate<IPerson> sumPredicate = p -> sum(p.getAge()) == 1250 && p.getName() == name;
+		SqlPredicate<IPerson> minPredicate = p -> min(p.getAge()) == 1250 && p.getName() == "Steve";
+		SqlPredicate<IPerson> maxPredicate = p -> max(p.getAge()) == 1250 || p.getName().startsWith(name);
+
+		assertPredicateEqual("SUM(`person`.`age`) = 1250 AND `person`.`name` = 'Steve'", sumPredicate);
+		assertPredicateEqual("MIN(`person`.`age`) = 1250 AND `person`.`name` = 'Steve'", minPredicate);
+		assertPredicateEqual("MAX(`person`.`age`) = 1250 OR `person`.`name` LIKE 'Steve%'", maxPredicate);
 	}
 
 	private void assertPredicateEqual(String expectedSql, SqlPredicate<IPerson> p) {
